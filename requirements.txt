@@ -1,0 +1,2 @@
+ytmusicapi>=1.10
+opencc-python-reimplemented>=0.1.7

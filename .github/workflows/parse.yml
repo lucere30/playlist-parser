@@ -1,0 +1,44 @@
+name: 解析歌单
+
+# GitHub 网页或手机 App：Actions → 解析歌单 → Run workflow，粘贴链接即可。
+on:
+  workflow_dispatch:
+    inputs:
+      link:
+        description: "歌单分享链接（或整段分享文字）"
+        required: true
+        type: string
+      isrc:
+        description: "ISRC 查询：full=完整（较慢）, deezer=只查 Deezer, off=不查"
+        required: true
+        default: full
+        type: choice
+        options: [full, deezer, off]
+
+permissions:
+  contents: read
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Parse
+        shell: bash
+        env:
+          LINK: ${{ inputs.link }}
+          ISRC: ${{ inputs.isrc }}
+        run: |
+          mkdir -p out
+          python -m plparse "$LINK" --isrc "$ISRC" -o out --quiet | tee out/summary.txt
+          { echo '```'; cat out/summary.txt; echo '```'; echo '文件在本页底部 Artifacts 里的 playlist-files。'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: playlist-files
+          path: out/
