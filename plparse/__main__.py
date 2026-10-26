@@ -1,18 +1,26 @@
-"""Command line:  python -m plparse "<歌单分享链接或分享文字>" [-o 输出目录] [--isrc full|deezer|off]"""
+"""Command line:
+  python -m plparse "<歌单分享链接或分享文字>" [-o 输出目录] [--isrc full|deezer|off]
+  python -m plparse "链接1
+链接2"                                   # 多个链接按顺序合并成一个歌单
+  python -m plparse 我的歌单.xml           # iTunes / 音乐 App「导出播放列表」得到的 XML 文件
+"""
 from __future__ import annotations
 
 import argparse
 import sys
 
-from .core import ISRC_MODES, parse_playlist
+from pathlib import Path
+
+from .core import ISRC_MODES, parse_file, parse_playlist
 from .detect import PLATFORM_NAMES, UnsupportedLink
 from .export import FORMATS, summary, write_all
 from .net import FetchError
+from .sources.itunes_xml import FileError
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="plparse", description="把任意平台的公开歌单链接解析成转移网站可导入的文件")
-    ap.add_argument("link", nargs="?", help="歌单分享链接或整段分享文字（不填则从标准输入读取）")
+    ap.add_argument("link", nargs="?", help="歌单分享链接 / 整段分享文字 / 多个链接 / iTunes 导出的 XML 文件路径（不填则从标准输入读取）")
     ap.add_argument("-o", "--out", default="output", help="输出目录（默认 ./output）")
     ap.add_argument("--isrc", choices=ISRC_MODES, default="full",
                     help="full=Deezer+MusicBrainz（最全，较慢）；deezer=只查Deezer；off=不查")
@@ -32,8 +40,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\r\033[K{msg}", end="", file=sys.stderr, flush=True)
 
     try:
-        pl = parse_playlist(text, isrc=a.isrc, with_albums=not a.no_album, progress=progress)
-    except (UnsupportedLink, FetchError) as e:
+        path = Path(text.strip()) if len(text.strip()) < 500 and "\n" not in text.strip() else None
+        if path is not None and path.is_file():
+            pl = parse_file(path.read_bytes(), path.name, isrc=a.isrc, progress=progress)
+        else:
+            pl = parse_playlist(text, isrc=a.isrc, with_albums=not a.no_album, progress=progress)
+    except (UnsupportedLink, FetchError, FileError) as e:
         print(f"\n错误：{e}", file=sys.stderr)
         return 2
     if not a.quiet:

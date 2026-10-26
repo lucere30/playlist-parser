@@ -5,6 +5,7 @@ Runs only on your own machine (binds to 127.0.0.1). No accounts, nothing stored.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import threading
 import urllib.parse
@@ -12,7 +13,7 @@ import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from .core import parse_playlist
+from .core import parse_file, parse_playlist
 from .detect import PLATFORM_NAMES
 from .export import RENDER, SUFFIX, safe_name, summary
 
@@ -20,14 +21,17 @@ JOBS: dict[str, dict] = {}
 MIME = {"csv": "text/csv", "review": "text/csv", "txt": "text/plain", "m3u": "audio/x-mpegurl", "json": "application/json"}
 
 
-def _run(job_id: str, link: str, isrc: str) -> None:
+def _run(job_id: str, link: str, isrc: str, file: tuple[str, bytes] | None = None) -> None:
     job = JOBS[job_id]
 
     def progress(msg: str) -> None:
         job["progress"] = msg
 
     try:
-        pl = parse_playlist(link, isrc=isrc, progress=progress)
+        if file:
+            pl = parse_file(file[1], file[0], isrc=isrc, progress=progress)
+        else:
+            pl = parse_playlist(link, isrc=isrc, progress=progress)
         job["playlist"] = pl
         job["isrc"] = isrc
         job["state"] = "done"
@@ -91,11 +95,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "请求格式不对"}, 400)
         link = (data.get("link") or "").strip()
         isrc = data.get("isrc") if data.get("isrc") in ("full", "deezer", "off") else "full"
-        if not link:
-            return self._json({"error": "先粘贴一个歌单链接"}, 400)
+        file = None
+        if data.get("file_b64"):
+            try:
+                file = (str(data.get("file_name") or "playlist.xml"), base64.b64decode(data["file_b64"]))
+            except ValueError:
+                return self._json({"error": "文件读取失败，请重新选择"}, 400)
+        if not link and not file:
+            return self._json({"error": "先粘贴一个歌单链接，或选择 iTunes 导出的 XML 文件"}, 400)
         job_id = uuid.uuid4().hex[:12]
         JOBS[job_id] = {"state": "running", "progress": "开始解析…"}
-        threading.Thread(target=_run, args=(job_id, link, isrc), daemon=True).start()
+        threading.Thread(target=_run, args=(job_id, link, isrc, file), daemon=True).start()
         self._json({"job": job_id})
 
 
@@ -139,6 +149,13 @@ form{display:grid;grid-template-columns:1fr auto;gap:10px}
 textarea{grid-column:1/-1;width:100%;min-height:92px;resize:vertical;padding:16px 18px;border:1.5px solid var(--rule);
   border-radius:14px;background:var(--sleeve);color:var(--ink);font:20px/1.5 var(--sans)}
 textarea:focus,button:focus-visible,a:focus-visible,input:focus-visible+span{outline:3px solid var(--signal);outline-offset:2px}
+.file{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:14px;color:var(--muted)}
+.file input{position:absolute;width:1px;height:1px;opacity:0}
+.file .pick{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.file input:focus-visible+span,.file .pick:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+#fname{color:var(--ink);font-weight:600}
+button.link{background:none;color:var(--signal);padding:0;border-radius:0;font:600 14px var(--sans)}
+form.drag textarea{border-color:var(--signal)}
 .opts{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;color:var(--muted);font-size:14px}
 .opts label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
 button{border:0;border-radius:999px;padding:12px 26px;background:var(--ink);color:var(--sleeve);font:600 16px var(--sans);cursor:pointer}
@@ -176,7 +193,13 @@ li{display:grid;grid-template-columns:2.4em 1fr auto;gap:4px 12px;padding:11px 0
 <main>
   <h1>歌单解析器</h1>
   <form id="f">
-    <textarea id="link" placeholder="粘贴歌单分享链接，或整段分享文字&#10;Spotify、Apple Music、YouTube Music、QQ音乐、网易云音乐都可以" required></textarea>
+    <textarea id="link" placeholder="粘贴歌单分享链接或分享文字，多个链接每行一个会合并&#10;支持 Spotify、Apple Music、YouTube Music、QQ音乐、网易云音乐"></textarea>
+    <div class="file">
+      <label class="pick" for="xml">或者上传 iTunes 导出的播放列表（XML）</label>
+      <input type="file" id="xml" accept=".xml,text/xml,application/xml">
+      <span id="fname"></span>
+      <button type="button" id="clearfile" class="link" hidden>移除</button>
+    </div>
     <div class="opts" role="radiogroup" aria-label="ISRC 查询方式">
       <span>查 ISRC：</span>
       <label><input type="radio" name="isrc" value="full" checked><span>完整（中文歌更准，较慢）</span></label>
@@ -204,14 +227,31 @@ const TAGS={live:"Live",remix:"Remix",acoustic:"Acoustic",remaster:"Remaster",in
   extended:"Extended","sped-up":"加速",slowed:"降速",piano:"钢琴版",orchestral:"管弦",acappella:"清唱",dj:"DJ",clean:"Clean","tv-size":"TV Size",female:"女声版",male:"男声版",chorus:"合唱版"};
 let timer=null;
 
+let picked=null;
+function setFile(f){
+  picked=f||null; $("#fname").textContent=picked?picked.name:""; $("#clearfile").hidden=!picked;
+  if(picked) $("#link").value="";
+}
+$("#xml").addEventListener("change",e=>setFile(e.target.files[0]));
+$("#clearfile").addEventListener("click",()=>{ $("#xml").value=""; setFile(null); });
+$("#link").addEventListener("input",()=>{ if($("#link").value.trim()&&picked){ $("#xml").value=""; setFile(null); } });
+const form=$("#f");
+["dragenter","dragover"].forEach(t=>form.addEventListener(t,e=>{ e.preventDefault(); form.classList.add("drag"); }));
+["dragleave","drop"].forEach(t=>form.addEventListener(t,e=>{ e.preventDefault(); form.classList.remove("drag"); }));
+form.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f) setFile(f); });
+const readB64=f=>new Promise((ok,bad)=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).split(",")[1]||""); r.onerror=()=>bad(new Error("文件读取失败")); r.readAsDataURL(f); });
+
 $("#f").addEventListener("submit",async e=>{
   e.preventDefault();
-  const link=$("#link").value.trim(); if(!link) return;
+  const link=$("#link").value.trim();
+  if(!link&&!picked){ setStatus("先粘贴一个歌单链接，或选择 iTunes 导出的 XML 文件",true); $("#link").focus(); return; }
   const isrc=document.querySelector('input[name=isrc]:checked').value;
   $("#go").disabled=true; $("#result").style.display="none"; $("#result").classList.remove("show");
   setStatus("正在解析…");
   try{
-    const r=await fetch("/api/parse",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({link,isrc})});
+    const body={link,isrc};
+    if(picked){ body.file_name=picked.name; body.file_b64=await readB64(picked); }
+    const r=await fetch("/api/parse",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     const j=await r.json(); if(!r.ok) throw new Error(j.error||"解析失败");
     poll(j.job);
   }catch(err){ setStatus(err.message,true); $("#go").disabled=false; }

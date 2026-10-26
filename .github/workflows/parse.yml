@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       link:
-        description: "歌单分享链接（或整段分享文字）"
+        description: "歌单分享链接或分享文字；多个链接用空格隔开会合并成一个歌单"
         required: true
         type: string
       isrc:

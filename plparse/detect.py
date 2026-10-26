@@ -29,6 +29,8 @@ PLATFORM_NAMES = {
     "ytmusic": "YouTube Music",
     "qqmusic": "QQ音乐",
     "netease": "网易云音乐",
+    "file": "iTunes / 音乐 App 导出文件",
+    "mixed": "多个平台合并",
 }
 
 

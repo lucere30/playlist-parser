@@ -71,6 +71,42 @@ def test_csv_matches_soundiiz_header():
     assert "晴天,周杰伦,叶惠美,TWK970300503,,,269s" in text
 
 
+def _itunes_xml(playlists):
+    import plistlib
+    tracks = {
+        "101": {"Track ID": 101, "Name": "晴天", "Artist": "周杰伦", "Album": "叶惠美", "Total Time": 269000, "Persistent ID": "AAA"},
+        "102": {"Track ID": 102, "Name": "成都 (Live)", "Artist": "赵雷", "Album": "歌手2017", "Total Time": 330500},
+        "103": {"Track ID": 103, "Name": "Bad Guy", "Artist": "Billie Eilish", "Album": "WHEN WE ALL FALL ASLEEP", "Total Time": 194088, "Explicit": True},
+    }
+    return plistlib.dumps({"Major Version": 1, "Tracks": tracks, "Playlists": playlists})
+
+
+def test_itunes_xml_import():
+    from plparse.core import parse_file
+    from plparse.sources.itunes_xml import FileError
+    items = [{"Track ID": 103}, {"Track ID": 101}, {"Track ID": 102}, {"Track ID": 999}]
+    data = _itunes_xml([{"Name": "Library", "Master": True, "Playlist Items": items},
+                        {"Name": "我的歌单", "Playlist ID": 7, "Playlist Items": items}])
+    pl = parse_file(data, "x.xml", isrc="off")
+    assert pl.name == "我的歌单" and pl.total == 4
+    assert [t.title for t in pl.tracks] == ["Bad Guy", "晴天", "成都 (Live)"]     # playlist order kept
+    assert [t.duration for t in pl.tracks] == [194, 269, 330]                     # ms -> s
+    assert pl.tracks[0].explicit is True and pl.tracks[1].explicit is None
+    assert pl.tracks[2].versions == ["live"]
+    assert any("跳过" in w for w in pl.warnings)                                   # dangling track id
+    two = _itunes_xml([{"Name": "A", "Playlist Items": items}, {"Name": "B", "Playlist Items": items}])
+    try:
+        parse_file(two, isrc="off")
+        raise AssertionError("should refuse a file with several playlists")
+    except FileError:
+        pass
+    try:
+        parse_file(b"not xml", isrc="off")
+        raise AssertionError("should refuse garbage")
+    except FileError:
+        pass
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

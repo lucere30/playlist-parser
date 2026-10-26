@@ -11,6 +11,9 @@
 | YouTube Music / YouTube | `https://music.youtube.com/playlist?list=…` |
 | QQ音乐 | `https://y.qq.com/n/ryqq/playlist/…`、`c6.y.qq.com` 短链接、微信分享链接 |
 | 网易云音乐 | `https://music.163.com/playlist?id=…`、`163cn.tv` 短链接 |
+| iTunes / 音乐 App 导出的 XML | 本地网页里上传，或 `python -m plparse 文件.xml` |
+
+**多个链接合并**：一次粘贴多个歌单链接（每行一个，GitHub 上用空格隔开），会按顺序合并成一个歌单，重复的歌只保留一首。
 
 ## 三种用法
 
@@ -63,6 +66,9 @@ python -m plparse "<链接>" --isrc deezer     # 只查 Deezer，更快
 ## 已知限制
 
 - **Spotify 不登录最多读到前 100 首**（嵌入页的上限）。超过时会提示总数。
+- **Apple Music 分享链接最多只给出前 300 首**，这是 Apple 对分享页的限制（[其他用户也报告过](https://discussions.apple.com/thread/254800582)）。超过 300 首有两种办法：
+  1. 在 iTunes（Windows）或 音乐 App（Mac）里选中歌单，「文件 > 资料库 > 导出播放列表」，格式选 XML，把文件上传到本地网页。这个方法没有数量限制。
+  2. 在 Apple Music 里把第 301 首以后的歌放进第二个歌单，把两个分享链接一起粘贴进来，会自动合并。
 - **私密歌单读不到**，只能读公开歌单。
 - **华语歌的 ISRC 覆盖率明显更低。** 2026 年 10 月实测（完整模式）：Spotify 欧美热歌 49/50、Apple Music 欧美歌单 152/159；周杰伦歌单 80/103；网易云网络歌曲歌单 43/113；QQ音乐混合歌单 52/179。原因是 Deezer 和 MusicBrainz 对华语网络歌曲收录少，而且同一首歌常以英文名上架（如 `晴天` 在 Deezer 是 `Sunny Day`），跨语言无法可靠确认，所以宁可留空。没有 ISRC 的歌，转移网站会按歌名 + 歌手 + 专辑 + 时长去匹配。
 - 完整模式里 MusicBrainz 限速每秒 1 次，没在 Deezer 找到的歌每首要多花 2–4 秒（100 首华语歌约 5 分钟）。赶时间就选「只查 Deezer」。

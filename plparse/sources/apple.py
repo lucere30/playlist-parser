@@ -65,5 +65,10 @@ def fetch(pid: str, progress=None) -> Playlist:
             )
         )
     if pl.total and pl.total > len(pl.tracks):
-        pl.warnings.append(f"Apple Music 页面只给出了 {len(pl.tracks)} 首（歌单共 {pl.total} 首）。")
+        pl.warnings.append(
+            f"Apple Music 的分享链接只给出了前 {len(pl.tracks)} 首（歌单共 {pl.total} 首），这是 Apple 对分享页的限制。"
+            "要拿到全部歌曲：在 iTunes（Windows）或 音乐 App（Mac）里选中这个歌单，"
+            "「文件 > 资料库 > 导出播放列表」，格式选 XML，把导出的文件上传到这里；"
+            "或者在 Apple Music 里把后面的歌放进第二个歌单，把两个分享链接一起粘贴进来（每行一个），会自动合并。"
+        )
     return pl

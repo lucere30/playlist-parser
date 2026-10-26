@@ -3,4 +3,4 @@ export it as files that playlist-transfer sites (Soundiiz, TuneMyMusic, ...) can
 
 __version__ = "0.1.0"
 
-from .core import parse_playlist  # noqa: E402,F401
+from .core import parse_file, parse_playlist  # noqa: E402,F401
