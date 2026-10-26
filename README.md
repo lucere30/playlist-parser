@@ -36,7 +36,13 @@ python -m plparse "<链接>" --isrc deezer     # 只查 Deezer，更快
 
 **3. GitHub（不用装任何东西）**
 
-把这个项目推到你自己的 GitHub 仓库 → Actions → 「解析歌单」→ Run workflow → 粘贴链接。几分钟后在运行页面底部的 Artifacts 下载 `playlist-files`。
+1. 打开仓库的 Actions 页面，左边选「解析歌单」。
+2. 点右边的 Run workflow，粘贴歌单链接，选 ISRC 查询方式，再点绿色的 Run workflow。
+3. 等运行变成绿色对勾（只查 Deezer 约 1–2 分钟，完整模式华语歌单可能要 10 分钟以上），点进去，在页面底部 Artifacts 下载 `playlist-files`（zip，里面就是 CSV 等文件）。
+
+注意：公开仓库的运行记录（包括你粘贴的链接和歌单名）所有登录了 GitHub 的人都能看到。
+
+自己部署：Fork 这个仓库，在你的 Fork 里按上面的步骤运行即可。
 
 ## 输出文件，传到哪里
 
