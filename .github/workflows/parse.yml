@@ -11,9 +11,9 @@ on:
       isrc:
         description: "ISRC 查询：full=完整（较慢）, deezer=只查 Deezer, off=不查"
         required: true
-        default: full
+        default: "full"
         type: choice
-        options: [full, deezer, off]
+        options: ["full", "deezer", "off"]
 
 permissions:
   contents: read
