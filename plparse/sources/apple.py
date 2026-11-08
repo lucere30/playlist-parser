@@ -64,7 +64,16 @@ def fetch(pid: str, progress=None) -> Playlist:
                 source_url=cd.get("url") or "",
             )
         )
-    if pl.total and pl.total > len(pl.tracks):
+    capped = len(pl.tracks) == 300 and (pl.total in (None, 300))
+    if capped:
+        # Apple's shared page stops at 300 songs and also reports 300 as the total,
+        # so a truncated playlist looks complete. Exactly 300 is the only hint.
+        pl.warnings.append(
+            "读到正好 300 首。Apple Music 分享页最多只公开 300 首，而且这时总数也会显示成 300，"
+            "所以歌单实际可能更长。要拿到全部歌曲：在 iTunes（Windows）或 音乐 App（Mac）里选中这个歌单，"
+            "「文件 > 资料库 > 导出播放列表」，格式选 XML，把导出的文件上传到这里。"
+        )
+    elif pl.total and pl.total > len(pl.tracks):
         pl.warnings.append(
             f"Apple Music 的分享链接只给出了前 {len(pl.tracks)} 首（歌单共 {pl.total} 首），这是 Apple 对分享页的限制。"
             "要拿到全部歌曲：在 iTunes（Windows）或 音乐 App（Mac）里选中这个歌单，"
